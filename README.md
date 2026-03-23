@@ -15,10 +15,10 @@ Three golden characteristics of beautiful code:
 
 | Reference File | Topics |
 |---|---|
-| `references/architecture.md` | Vertical Slice Architecture, CQRS, Minimal APIs, pipeline behaviors, project structure |
-| `references/csharp-idioms.md` | Sealed classes, records, pattern matching, primary constructors, value objects, C# 12/13/14 features |
-| `references/code-quality.md` | Naming, formatting, complexity control, anti-patterns, clean code practices |
-| `references/review-checklist.md` | Systematic code review checklist with severity levels |
+| `references/architecture.md` | Vertical Slice Architecture, CQRS, Minimal APIs, pipeline behaviors, composition over inheritance, DI rules, project structure |
+| `references/csharp-idioms.md` | Sealed classes, records, pattern matching, primary constructors, value objects, functional patterns, C# 12/13/14 features |
+| `references/code-quality.md` | Naming, formatting, complexity control, premature optimization, anti-patterns, clean code practices |
+| `references/review-checklist.md` | Systematic code review checklist with severity levels (100+ items) |
 | `references/efcore-patterns.md` | EF Core query patterns, configuration, migrations |
 | `references/cross-cutting.md` | Validation, logging, metrics, authorization, error handling pipelines |
 
@@ -31,29 +31,63 @@ Three golden characteristics of beautiful code:
 - Prefer **feature-based** organization over layer-based
 - Prefer **explicit** registration over magic/scanning
 - Prefer **simple** over abstract
+- Prefer **measuring** over guessing (no premature optimization)
+- Prefer **iteration** over recursion (C# has no guaranteed TCO)
 
 ## C# Version Coverage
 
 The skill includes detailed guidance and prerequisite validation for:
 
-- **C# 12 (.NET 8)** - Collection expressions, primary constructors, alias any type, default lambda parameters
-- **C# 13 (.NET 9)** - `params` collections, `System.Threading.Lock`, `allows ref struct`, partial properties
-- **C# 14 (.NET 10)** - Extension members, `field` keyword, null-conditional assignment, implicit span conversions
+- **C# 12 (.NET 8)** - Collection expressions, primary constructors, alias any type, default lambda parameters, `ref readonly` parameters, `[Experimental]` attribute
+- **C# 13 (.NET 9)** - `params` collections, `System.Threading.Lock`, `\e` escape, `allows ref struct`, `ref struct` interfaces, partial properties, `[OverloadResolutionPriority]`
+- **C# 14 (.NET 10)** - Extension members, `field` keyword, null-conditional assignment, implicit span conversions, simple lambda parameter modifiers, `nameof` with unbound generics, partial constructors
 
 Each version section includes prerequisite checks to validate `TargetFramework` and `LangVersion` before applying syntax.
 
 ## Anti-Patterns Detected
 
 The skill actively flags and provides fixes for:
+
+### Architecture
 - Repository pattern over EF Core
 - Implicit operators for DTO/entity conversion
-- `throw ex` (stack trace destruction)
-- Swallowed exceptions
-- `new HttpClient()` (socket exhaustion)
-- Forgotten `await` / `async void`
 - Anemic domain models
-- Singleton abuse with mutable state
 - God controllers and service pass-throughs
+- Premature abstractions (`IXService` with one implementation)
+- Singleton abuse with mutable state
+
+### Async & Exceptions
+- Forgotten `await` / `async void`
+- `throw ex` (stack trace destruction)
+- Swallowed exceptions (empty catch blocks)
+- Throwing `NullReferenceException` manually
+- Sync-over-async (`.Result` / `.Wait()`)
+
+### Naming & Style
+- Hungarian notation (`strName`, `iCount`)
+- Abbreviated variables
+- `Utils` / `Helper` / `Base` / `Abstract` class names
+- Magic strings and numbers
+
+### Resource Management
+- `new HttpClient()` (socket exhaustion)
+- Recursive methods for tree/graph traversal (use `Stack<T>` / `Queue<T>`)
+
+### Functional Patterns
+- Impure core logic (side effects mixed with business rules)
+- Mutable state where immutability is possible
+
+## Code Quality Guidelines
+
+The skill incorporates guidance from 7 areas of C# code quality:
+
+1. **Abstraction tradeoffs** - coupling is the cost of abstraction; composition over inheritance
+2. **Naming** - never abbreviate, no Hungarian notation, use types for units, don't name things `Utils`
+3. **Nesting** - max 3 levels; use guard clauses (inversion) and extraction to flatten
+4. **Comments** - code should speak for itself; comments only for *why* (perf, algorithms, workarounds)
+5. **Premature optimization** - measure before optimizing; macro moves before micro-tuning
+6. **Dependency injection** - pass it in, don't reach for it; factories for runtime decisions
+7. **Functional thinking** - impure shell/pure core; LINQ pipelines; iteration over recursion
 
 ## Installation
 
