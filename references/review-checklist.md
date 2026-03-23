@@ -111,12 +111,14 @@ Walk through each section in order. Report findings grouped by severity.
 
 ### Variable Names
 - [ ] All variables describe their content, not their type
+- [ ] No Hungarian notation (`strName`, `iCount`, `lstOrders`) — the type system carries this
 - [ ] Boolean variables read as questions: `isActive`, `hasPermission`, `canEdit`
 - [ ] No single-letter variables outside of lambdas and loop indices
 - [ ] No abbreviations unless universally understood (`id`, `db`, `ct` for CancellationToken)
+- [ ] Strong types used for units where possible (`TimeSpan` over `int delaySeconds`)
 
 ### Class Names
-- [ ] No `Helper`, `Utils`, `Manager`, `Processor` suffixes without strong justification
+- [ ] No `Helper`, `Utils`, `Manager`, `Processor`, `Base`, `Abstract` suffixes without strong justification
 - [ ] Class name matches the file name
 - [ ] Handler classes named `Handler` or `{Action}Handler`
 
@@ -206,6 +208,12 @@ Walk through each section in order. Report findings grouped by severity.
 - [ ] No LINQ in performance-critical tight loops (use `foreach` + `if`)
 - [ ] `ValueTask<T>` considered for hot paths with frequent synchronous completion
 - [ ] `readonly struct` or `record struct` used for small, stack-allocated types
+
+### Premature Optimization
+- [ ] No micro-optimizations without profiling evidence (`for` vs `foreach`, manual inlining)
+- [ ] Performance-motivated code has a comment explaining the *why* and linking to benchmarks
+- [ ] Data structure choices justified (macro optimization) before micro-tuning considered
+- [ ] No recursive methods for tree/graph traversal — use `Stack<T>` / `Queue<T>` iteratively
 
 ### Logging
 - [ ] Structured logging used: `logger.LogInformation("User created {UserId}", id)`

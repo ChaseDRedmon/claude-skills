@@ -439,6 +439,110 @@ foreach (var order in orders)
 }
 ```
 
+### Impure Shell, Pure Core
+Structure code so core logic is pure and side effects happen at the boundaries.
+
+```csharp
+// Impure shell: fetches data, calls pure core, writes results
+public async Task ProcessOrdersAsync(CancellationToken ct)
+{
+    var orders = await orderRepository.GetPendingAsync(ct);     // side effect: read
+    var invoices = GenerateInvoices(orders);                     // pure core
+    await invoiceRepository.SaveBatchAsync(invoices, ct);        // side effect: write
+}
+
+// ✅ Pure function — takes data in, returns data out, touches nothing else
+public static IReadOnlyList<Invoice> GenerateInvoices(IReadOnlyList<Order> orders)
+{
+    return orders
+        .Where(o => o.IsApproved && o.Lines.Count > 0)
+        .Select(o => new Invoice(
+            OrderId:    o.Id,
+            Total:      o.Lines.Sum(l => l.Price * l.Quantity),
+            IssuedDate: DateOnly.FromDateTime(DateTime.UtcNow)))
+        .ToList();
+}
+```
+
+The pure `GenerateInvoices` is trivially testable — pass in a list, assert on output.
+No mocks, no database setup, no async ceremony.
+
+### Prefer Iteration Over Recursion
+
+C# has no guaranteed tail-call optimization. Deep recursion causes `StackOverflowException`
+you cannot catch. **Always prefer iterative loops, `Stack<T>`, `Queue<T>`, and LINQ
+over recursive method calls.**
+
+```csharp
+// ❌ Recursive — risks StackOverflowException on deep trees
+public static IEnumerable<TreeNode> GetAllNodes(TreeNode root)
+{
+    yield return root;
+    foreach (var child in root.Children)
+        foreach (var node in GetAllNodes(child))
+            yield return node;
+}
+
+// ✅ Iterative with explicit stack — handles arbitrarily deep trees
+public static IEnumerable<TreeNode> DepthFirst(TreeNode root)
+{
+    var stack = new Stack<TreeNode>();
+    stack.Push(root);
+
+    while (stack.Count > 0)
+    {
+        var current = stack.Pop();
+        yield return current;
+
+        for (int i = current.Children.Count - 1; i >= 0; i--)
+            stack.Push(current.Children[i]);
+    }
+}
+
+// ✅ Breadth-first with a queue
+public static IEnumerable<TreeNode> BreadthFirst(TreeNode root)
+{
+    var queue = new Queue<TreeNode>();
+    queue.Enqueue(root);
+
+    while (queue.Count > 0)
+    {
+        var current = queue.Dequeue();
+        yield return current;
+
+        foreach (var child in current.Children)
+            queue.Enqueue(child);
+    }
+}
+```
+
+Use `Stack<T>` for depth-first, `Queue<T>` for breadth-first. The pattern is always:
+seed the collection, loop while non-empty, process current, push/enqueue successors.
+
+### Composable Pipeline Stages
+
+Build reusable LINQ pipeline stages as extension methods with descriptive names:
+
+```csharp
+public static class ReceiptPipelineExtensions
+{
+    public static IEnumerable<Receipt> ForUser(
+        this IEnumerable<Receipt> receipts, string userId)
+        => receipts.Where(r => r.UserId == userId);
+
+    public static IEnumerable<Receipt> WithTotalBetween(
+        this IEnumerable<Receipt> receipts, decimal min, decimal max)
+        => receipts.Where(r => r.Total >= min && r.Total <= max);
+}
+
+// Usage reads like a sentence
+var results = receipts
+    .ForUser("user-42")
+    .WithTotalBetween(14m, 20m)
+    .Take(5)
+    .ToList();
+```
+
 ### Immutable Data Flow
 Data should flow through handlers without mutation across layers:
 ```

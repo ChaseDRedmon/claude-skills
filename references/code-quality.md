@@ -12,8 +12,9 @@ Naming conventions, formatting rules, complexity control, and aesthetic practice
 7. [File Organization](#file-organization)
 8. [Static Analysis & Enforcement](#static-analysis--enforcement)
 9. [EditorConfig](#editorconfig)
-10. [Common C# Anti-Patterns](#common-c-anti-patterns)
-11. [Team Culture Rules](#team-culture-rules)
+10. [Premature Optimization](#premature-optimization)
+11. [Common C# Anti-Patterns](#common-c-anti-patterns)
+12. [Team Culture Rules](#team-culture-rules)
 
 ---
 
@@ -37,6 +38,55 @@ Run()
 Execute()
 Helper()
 ```
+
+### Never Abbreviate
+Take the single-letter rule further: don't abbreviate. Abbreviations depend on context
+the reader may not have. Modern IDEs autocomplete everything; there's no keystrokes to save.
+
+```csharp
+// ❌ Abbreviated — depends on reader knowing your shorthand
+var prodCatRepo = new ProdCatRepo();
+var custSvc = GetCustSvc();
+var txnAmt = CalcTxnAmt(ordItms);
+
+// ✅ Spell it out
+var productCategoryRepository = new ProductCategoryRepository();
+var customerService = GetCustomerService();
+var transactionAmount = CalculateTransactionAmount(orderItems);
+```
+
+### Don't Put Types in Names (No Hungarian Notation)
+The type system already carries type information. Encoding it into names is redundant noise.
+
+```csharp
+// ❌ Hungarian notation — the type system already tells you this
+string strCustomerName;
+int iOrderCount;
+List<Order> lstOrders;
+bool bIsActive;
+
+// ✅ Let the type declaration do its job
+string customerName;
+int orderCount;
+List<Order> orders;
+bool isActive;
+```
+
+### Use Types to Encode Units — Not Names
+When possible, use a strong type that removes unit ambiguity entirely instead of encoding
+units in the variable name.
+
+```csharp
+// Acceptable — units in the name are better than nothing
+public void ScheduleRetry(int delaySeconds) { /* ... */ }
+
+// ✅ Better — TimeSpan removes all ambiguity
+public void ScheduleRetry(TimeSpan delay) { /* ... */ }
+ScheduleRetry(TimeSpan.FromSeconds(30)); // intention is explicit at the call site
+```
+
+Apply this beyond time: `decimal` with a `Money` record for currency, value objects for
+measurements. If a strong type exists or is cheap to create, prefer it over naming conventions.
 
 ### Variable Names — Describe the Content
 ```csharp
@@ -83,13 +133,28 @@ DataManager        // "manager" manages what exactly?
 ProcessorService   // redundant, vague
 ```
 
+### Don't Name Classes `Base` or `Abstract`
+If you need a parent class, the parent gets the clean name. Over-specify the child instead.
+
+```csharp
+// ❌ "Base" is an implementation detail leaking into the name
+public abstract class BaseTruck { }
+public class Truck : BaseTruck { }
+
+// ✅ Parent gets the clean name; children specialize
+public abstract class Truck { }
+public sealed class TrailerTruck : Truck { }
+public sealed class DumpTruck : Truck { }
+```
+
 ### Banned Suffixes
 Avoid these unless the class genuinely represents the concept:
-- `Helper` → indicates a missing domain concept
-- `Utils` / `Utilities` → indicates a junk drawer class
+- `Helper` → indicates a missing domain concept; redistribute methods to proper types
+- `Utils` / `Utilities` → a junk drawer class; every method belongs somewhere else
 - `Manager` → vague, almost always decomposable
 - `Processor` → vague without domain context
 - `Info` / `Data` → use the actual domain term
+- `Base` / `Abstract` → implementation detail; rename the child to be more specific
 
 ---
 
@@ -137,9 +202,30 @@ public async Task HandleOrder(Order order, CancellationToken ct)
 ```
 
 ### Acceptable Comments
-- **XML documentation** on public APIs (see below)
-- **`// TODO:`** for tracked work items (with ticket reference)
+Comments earn their place only when they explain **why**, not **what**:
+
+- **Performance-motivated code** — when code looks strange because it was optimized:
+  ```csharp
+  // Stackalloc avoids heap allocation on this hot path — measured 3x throughput
+  // improvement under load (see /benchmarks/SerializerBench.cs).
+  Span<byte> buffer = stackalloc byte[256];
+  ```
+- **Algorithm or formula references** — link to the source for future verification:
+  ```csharp
+  // Fisher-Yates shuffle: https://en.wikipedia.org/wiki/Fisher-Yates_shuffle
+  for (int i = items.Length - 1; i > 0; i--)
+  {
+      int j = Random.Shared.Next(i + 1);
+      (items[i], items[j]) = (items[j], items[i]);
+  }
+  ```
+- **Workarounds for external bugs** — explain so nobody "fixes" it back:
+  ```csharp
+  // EF Core 8 generates incorrect LEFT JOIN with .Include() + .AsSplitQuery()
+  // on this navigation. Tracked: dotnet/efcore#31245. Using manual projection.
+  ```
 - **Regulatory/legal** requirements
+- **`// TODO:`** for tracked work items (with ticket reference)
 - **Non-obvious "why"** when the code intentionally looks wrong:
   ```csharp
   // Intentionally using Thread.Sleep here because the external API
@@ -430,6 +516,71 @@ csharp_style_var_for_built_in_types = false:suggestion
 csharp_style_prefer_switch_expression = true:suggestion
 csharp_style_prefer_pattern_matching = true:suggestion
 dotnet_style_prefer_is_null_check_over_reference_equality_method = true:warning
+```
+
+---
+
+## Premature Optimization
+
+**Default to readable code. Optimize only when a real problem is measured.**
+
+Coupling is the cost of abstraction, and complexity is the cost of optimization. Most
+performance debates in code reviews are wasted time — people argue about micro-optimizations
+without measuring. The only reliable answer comes from profiling.
+
+### Micro vs. Macro Performance
+
+**Macro** is design-level: data structures, algorithms, I/O patterns, query design. These
+have order-of-magnitude impact. **Micro** is fine-tuning: `for` vs `foreach`, inlining,
+avoiding a single allocation. Micro concerns dominate code review debates but almost
+never matter in practice.
+
+```csharp
+// ❌ Premature — optimizing before proving this is a bottleneck
+// "for is faster than foreach on arrays"
+for (int i = 0; i < items.Length; i++)
+    Process(items[i]);
+
+// ✅ Prefer readability by default
+foreach (var item in items)
+    Process(item);
+// The JIT often produces identical code for both on arrays.
+// If profiling proves this loop is a hotspot, then optimize.
+```
+
+### When to Optimize
+
+1. **Confirm a real problem** — don't optimize because something *might* be slow. Define
+   a concrete target: "P99 latency below 50ms", "process 10k messages/second."
+2. **Measure the baseline** — use `BenchmarkDotNet` for micro-benchmarks, `dotnet-trace` /
+   `dotnet-counters` for application profiling. No baseline = no proof.
+3. **Make 80% moves first** — data structure/algorithm changes deliver 10-100x. Replace
+   O(n) scans with O(1) lookups, batch database calls, cache repeated computations.
+4. **Profile to find hotspots** — the bottleneck is almost never where you think it is.
+5. **Micro-optimize last** — only after macro moves and profiling: `Span<T>`, `stackalloc`,
+   `ArrayPool<T>`, manual loops replacing LINQ on a *measured* hot path.
+
+### Your Assumptions Will Be Wrong
+
+```csharp
+// "Obviously" HashSet is faster for lookups — but is it?
+var users = new HashSet<int>();      // scattered heap nodes, hash overhead
+var users = new List<int>();         // contiguous memory, cache-friendly
+
+// For 5-10 elements, linear scan through List<T> can outperform HashSet<T>
+// because the data sits together in memory. The only way to know: measure.
+```
+
+### Comment Performance-Motivated Code
+
+When code looks strange for performance reasons, explain the *why* and link to benchmark
+results. This prevents well-meaning reverts (see Comment Policy above).
+
+```csharp
+// ✅ Justified — profiler showed this method accounts for 40% of CPU time
+// in the serialization pipeline. Stackalloc avoids GC pressure on hot path.
+// Benchmark: benchmarks/SerializerBench.cs (3.2x throughput improvement)
+Span<byte> buffer = stackalloc byte[256];
 ```
 
 ---
