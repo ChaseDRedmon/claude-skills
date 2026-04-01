@@ -1,6 +1,0 @@
-{
-  "name": "csharp-aesthetic-architecture",
-  "version": "1.0.0",
-  "description": "Modern C# architecture with Vertical Slice Architecture, CQRS, C# 12-14 features, anti-pattern detection, and a 100+ item review checklist.",
-  "skills": "./skills/"
-}

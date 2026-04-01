@@ -4,17 +4,8 @@ A [Claude Code](https://claude.com/claude-code) plugin for building, reviewing, 
 
 ## Installation
 
-### As a Plugin (recommended)
-
 ```bash
-/plugin marketplace add ChaseDRedmon/claude-skills
-/plugin install csharp-aesthetic-architecture
-```
-
-### Manual
-
-```bash
-git clone git@github.com:ChaseDRedmon/claude-skills.git ~/.claude/skills/csharp-aesthetic-architecture
+git clone git@github.com:ChaseDRedmon/csharp-aesthetic-architecture.git ~/.claude/skills/csharp-aesthetic-architecture
 ```
 
 ## Philosophy
@@ -33,12 +24,12 @@ Everything derives from one principle: **Optimize for human comprehension, not t
 
 | File | Topics |
 |---|---|
-| `skills/references/architecture.md` | Vertical Slice Architecture, CQRS, Minimal APIs, pipeline behaviors, composition over inheritance, DI rules |
-| `skills/references/csharp-idioms.md` | Sealed classes, records, pattern matching, value objects, functional patterns, C# 12/13/14 features |
-| `skills/references/code-quality.md` | Naming, formatting, complexity control, premature optimization, anti-patterns |
-| `skills/references/review-checklist.md` | 100+ item code review checklist with severity levels |
-| `skills/references/efcore-patterns.md` | EF Core query patterns, configuration, migrations |
-| `skills/references/cross-cutting.md` | Validation, logging, metrics, authorization, error handling pipelines |
+| `references/architecture.md` | Vertical Slice Architecture, CQRS, Minimal APIs, pipeline behaviors, composition over inheritance, DI rules |
+| `references/csharp-idioms.md` | Sealed classes, records, pattern matching, value objects, functional patterns, C# 12/13/14 features |
+| `references/code-quality.md` | Naming, formatting, complexity control, premature optimization, anti-patterns |
+| `references/review-checklist.md` | 100+ item code review checklist with severity levels |
+| `references/efcore-patterns.md` | EF Core query patterns, configuration, migrations |
+| `references/cross-cutting.md` | Validation, logging, metrics, authorization, error handling pipelines |
 
 ## C# Version Coverage
 
